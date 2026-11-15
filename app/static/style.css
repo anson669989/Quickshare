@@ -1,0 +1,305 @@
+/* Quick Share 樣式：單一檔案、只用 class 選擇器 */
+
+/* ---------- 基本 ---------- */
+.page {
+  margin: 0;
+  background-color: rgb(251, 251, 251);
+  color: rgb(60, 60, 60);
+  font-family: system-ui, -apple-system, "Segoe UI", "Microsoft JhengHei", "PingFang TC", sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* 置中的單欄面板：桌面約 320px 寬，手機則填滿螢幕並留 16px 邊距 */
+.panel {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 352px;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+  display: flex;
+  flex-direction: column;
+  row-gap: 15px;
+}
+
+/* ---------- 標題列 ---------- */
+.title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  column-gap: 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: rgb(70, 70, 70);
+}
+
+/* ---------- 圖示與按鈕 ---------- */
+.icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  filter: invert(0.45); /* 深色圖示調成灰色 */
+}
+
+.icon-button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.icon-button:hover,
+.icon-button:focus-visible {
+  background-color: rgb(235, 235, 235);
+}
+
+.icon-button:hover .icon {
+  filter: invert(0.2);
+}
+
+.text-button {
+  flex: none;
+  padding: 6px 14px;
+  border: 1px solid rgb(200, 200, 200);
+  border-radius: 5px;
+  background-color: rgb(255, 255, 255);
+  color: rgb(80, 80, 80);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.text-button:hover {
+  background-color: rgb(241, 241, 241);
+}
+
+/* ---------- flash 訊息 ---------- */
+.flash-list {
+  display: flex;
+  flex-direction: column;
+  row-gap: 6px;
+}
+
+.flash-list:empty {
+  display: none;
+}
+
+.flash {
+  padding: 6px 10px;
+  border-left: 3px solid rgb(151, 151, 151);
+  background-color: rgb(241, 241, 241);
+  color: rgb(99, 99, 99);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.flash-success {
+  border-left-color: rgb(110, 165, 120);
+  background-color: rgb(238, 245, 239);
+  color: rgb(60, 105, 70);
+}
+
+.flash-warning {
+  border-left-color: rgb(205, 160, 70);
+  background-color: rgb(250, 245, 232);
+  color: rgb(125, 95, 35);
+}
+
+.flash-error {
+  border-left-color: rgb(195, 95, 90);
+  background-color: rgb(250, 238, 237);
+  color: rgb(140, 55, 50);
+}
+
+/* ---------- 上傳區 ---------- */
+.upload-form {
+  margin: 0;
+}
+
+.upload-zone {
+  position: relative;
+  box-sizing: border-box;
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  column-gap: 8px;
+  border: 2px dashed rgb(171, 171, 171);
+  border-radius: 5px;
+  color: rgb(171, 171, 171);
+  cursor: pointer;
+}
+
+.upload-zone:hover,
+.upload-zone:focus-within {
+  border-color: rgb(140, 140, 140);
+  background-color: rgb(246, 246, 246);
+}
+
+/* 隱藏原生檔案選擇框，但保留鍵盤可聚焦 */
+.upload-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.upload-icon {
+  width: 32px;
+  height: 32px;
+  filter: invert(0.7);
+}
+
+.upload-form.is-uploading .upload-zone {
+  pointer-events: none;
+  cursor: progress;
+  border-style: solid;
+  background-color: rgb(244, 244, 244);
+}
+
+.limits-notice {
+  margin: 6px 0 0;
+  color: rgb(150, 150, 150);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* ---------- 分享列 ---------- */
+.share-row {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  column-gap: 8px;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: rgb(150, 150, 150);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.share-row .icon {
+  filter: invert(0.6);
+}
+
+.share-row:hover,
+.share-row:focus-visible {
+  color: rgb(100, 100, 100);
+}
+
+/* ---------- 檔案清單 ---------- */
+.file-list {
+  min-height: 200px; /* 沒有檔案時也保留展示空間 */
+  display: flex;
+  flex-direction: column;
+  row-gap: 4px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  column-gap: 6px;
+  padding: 2px 0;
+  border-bottom: 1px solid rgb(236, 236, 236);
+}
+
+.file-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.file-size {
+  flex: none;
+  color: rgb(150, 150, 150);
+  font-size: 12px;
+}
+
+.remove-form {
+  margin: 0;
+  display: flex;
+}
+
+.file-empty {
+  margin: 40px 0 0;
+  color: rgb(171, 171, 171);
+  text-align: center;
+  font-size: 14px;
+}
+
+/* ---------- 彈窗 ---------- */
+.dialog {
+  box-sizing: border-box;
+  width: calc(100% - 32px);
+  max-width: 300px;
+  padding: 18px;
+  border: 1px solid rgb(220, 220, 220);
+  border-radius: 8px;
+  background-color: rgb(255, 255, 255);
+  color: inherit;
+}
+
+.dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.25);
+}
+
+.dialog-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  row-gap: 10px;
+}
+
+.dialog-text {
+  margin: 0;
+  font-size: 14px;
+}
+
+.qrcode {
+  width: 200px;
+  max-width: 80%;
+  height: auto;
+}
+
+.copy-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  column-gap: 6px;
+}
+
+.share-link-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid rgb(200, 200, 200);
+  border-radius: 5px;
+  background-color: rgb(248, 248, 248);
+  color: rgb(80, 80, 80);
+  font: inherit;
+  font-size: 13px;
+}
+
+.copy-status {
+  flex: none;
+  white-space: nowrap;
+  color: rgb(60, 105, 70);
+  font-size: 12px;
+}

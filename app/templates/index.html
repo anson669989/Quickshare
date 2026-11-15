@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ "Quick Share" if is_owner else "Share Files" }}</title>
+  <link rel="icon" href="{{ url_for('static', filename='icon/favicon.ico') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon/apple-touch-icon.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body class="page">
+  <main class="panel">
+
+    <header class="title-row">
+      {% if is_owner %}
+        <h1 class="title">Quick Share</h1>
+        <button type="button" class="icon-button js-open-dialog" data-dialog="dialog-info" aria-label="說明">
+          <img class="icon" src="{{ url_for('static', filename='icon/infoicon.png') }}" alt="">
+        </button>
+      {% else %}
+        <h1 class="title">Share Files</h1>
+        <a class="icon-button" href="{{ url_for('main.index') }}" aria-label="回首頁" title="回首頁">
+          <img class="icon" src="{{ url_for('static', filename='icon/homeicon.png') }}" alt="">
+        </a>
+      {% endif %}
+    </header>
+
+    <div class="flash-list js-flash-list" aria-live="polite">
+      {% for category, message in get_flashed_messages(with_categories=true) %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+
+    {% if is_owner %}
+      <form class="upload-form js-upload-form" method="post" action="{{ url_for('main.upload') }}"
+            enctype="multipart/form-data"
+            data-max-bytes="{{ max_upload_bytes }}"
+            data-too-large-message="{{ too_large_message }}"
+            data-uploading-text="上傳中…">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="upload-zone">
+          <input class="upload-input js-upload-input" type="file" name="the_file">
+          <img class="upload-icon" src="{{ url_for('static', filename='icon/uploadicon.png') }}" alt="">
+          <span class="upload-text js-upload-text">選擇檔案上傳</span>
+        </label>
+        <p class="limits-notice">{{ limits_notice }}</p>
+      </form>
+
+      <button type="button" class="share-row js-open-dialog" data-dialog="dialog-share">
+        <img class="icon" src="{{ url_for('static', filename='icon/papericon.png') }}" alt="">
+        <span>Share file</span>
+      </button>
+    {% endif %}
+
+    <section class="file-list" aria-label="檔案清單">
+      {% for file in files %}
+        <div class="file-item">
+          <span class="file-name" title="{{ file.display_name }}">{{ file.display_name | shorten }}</span>
+          <span class="file-size">{{ file.size | filesize }}</span>
+          <a class="icon-button" href="{{ url_for('main.download', room_id=room_id, filename=file.stored_name) }}"
+             aria-label="下載 {{ file.display_name }}" title="下載">
+            <img class="icon" src="{{ url_for('static', filename='icon/downloadicon.png') }}" alt="">
+          </a>
+          {% if is_owner %}
+            <form class="remove-form" method="post"
+                  action="{{ url_for('main.remove', room_id=room_id, filename=file.stored_name) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="icon-button" aria-label="刪除 {{ file.display_name }}" title="刪除">
+                <img class="icon" src="{{ url_for('static', filename='icon/garbagecan.png') }}" alt="">
+              </button>
+            </form>
+          {% endif %}
+        </div>
+      {% else %}
+        <p class="file-empty">{{ empty_message }}</p>
+      {% endfor %}
+    </section>
+  </main>
+
+  {% if is_owner %}
+    <dialog class="dialog dialog-info">
+      <div class="dialog-body">
+        <p class="dialog-text">{{ info_text }}</p>
+        <button type="button" class="text-button js-close-dialog">關閉</button>
+      </div>
+    </dialog>
+
+    <dialog class="dialog dialog-share">
+      <div class="dialog-body">
+        <img class="qrcode" src="{{ url_for('main.qrcode_image', room_id=room_id) }}" alt="分享連結的 QR code" width="200" height="200">
+        <div class="copy-row">
+          <input class="share-link-input js-share-link" type="text" value="{{ share_url }}" readonly aria-label="分享連結">
+          <button type="button" class="text-button js-copy" data-copied-text="已複製">複製</button>
+          <span class="copy-status js-copy-status" aria-live="polite"></span>
+        </div>
+        <button type="button" class="text-button js-close-dialog">關閉</button>
+      </div>
+    </dialog>
+  {% endif %}
+</body>
+</html>

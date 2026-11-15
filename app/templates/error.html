@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quick Share</title>
+  <link rel="icon" href="{{ url_for('static', filename='icon/favicon.ico') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="page">
+  <main class="panel">
+    <header class="title-row">
+      <h1 class="title">Quick Share</h1>
+    </header>
+    <div class="flash flash-error">{{ message }}</div>
+    <a class="share-row" href="{{ url_for('main.index') }}">
+      <img class="icon" src="{{ url_for('static', filename='icon/homeicon.png') }}" alt="">
+      <span>回首頁</span>
+    </a>
+  </main>
+</body>
+</html>
