@@ -2,7 +2,7 @@
 import logging
 from logging.handlers import RotatingFileHandler
 
-from flask import flash, redirect, render_template, request, url_for
+from flask import flash, jsonify, redirect, render_template, request, url_for
 from flask_wtf.csrf import CSRFError
 from werkzeug.exceptions import Forbidden, InternalServerError, NotFound, RequestEntityTooLarge
 
@@ -37,15 +37,20 @@ def register_error_handlers(app):
         logger.warning("403 沒有權限：%s", request.path)
         return render_template("error.html", message=messages.NO_PERMISSION), 403
 
+    def warn_and_go_home(message, status):
+        """前端 JS 的請求回 JSON；一般表單則 flash 後導回首頁。"""
+        if request.headers.get("X-Requested-With") == "fetch":
+            return jsonify(category="warning", message=message), status
+        flash(message, "warning")
+        return redirect(url_for("main.index"))
+
     @app.errorhandler(RequestEntityTooLarge)
     def too_large(error):
-        flash(messages.file_too_large(max_mb), "warning")
-        return redirect(url_for("main.index"))
+        return warn_and_go_home(messages.file_too_large(max_mb), 413)
 
     @app.errorhandler(CSRFError)
     def csrf_error(error):
-        flash(messages.PAGE_EXPIRED, "warning")
-        return redirect(url_for("main.index"))
+        return warn_and_go_home(messages.PAGE_EXPIRED, 400)
 
     @app.errorhandler(InternalServerError)
     def server_error(error):

@@ -3,7 +3,7 @@ import io
 import logging
 
 import qrcode
-from flask import (Blueprint, abort, current_app, flash, redirect, render_template,
+from flask import (Blueprint, abort, current_app, flash, jsonify, redirect, render_template,
                    request, send_file, session, url_for)
 
 from . import messages, storage
@@ -41,11 +41,10 @@ def render_page(room_id, is_owner):
         files=get_storage().list_files(room_id),
         empty_message=messages.OWNER_EMPTY if is_owner else messages.SHARE_EMPTY,
         share_url=url_for("main.share_view", room_id=room_id, _external=True),
-        max_upload_mb=config.max_upload_mb,
         max_upload_bytes=config.max_upload_mb * 1024 * 1024,
-        too_large_message=messages.file_too_large(config.max_upload_mb),
-        limits_notice=messages.limits_notice(config.max_upload_mb, config.max_files_per_room, config.room_ttl_days),
-        info_text=messages.info_text(config.max_upload_mb),
+        info_lines=messages.info_lines(config.max_upload_mb, config.max_files_per_room, config.room_ttl_days),
+        msg=messages,
+        skipped_message=messages.upload_skipped_too_large(config.max_upload_mb),
     )
 
 
@@ -54,22 +53,38 @@ def index():
     return render_page(owner_room(), is_owner=True)
 
 
-@bp.post("/upload")
-def upload():
-    room_id = owner_room()
-    the_file = request.files.get("the_file")
-    if the_file is None or not the_file.filename:
-        flash(messages.NO_FILE_SELECTED, "warning")
-        return redirect(url_for("main.index"))
+def wants_json():
+    """前端 JS（fetch）送來的請求會帶這個標頭，此時回傳 JSON 而不是轉址。"""
+    return request.headers.get("X-Requested-With") == "fetch"
+
+
+def save_one(room_id, the_file):
+    """儲存一個上傳檔案，回傳 (類別, 訊息)。"""
     try:
         stored_name = get_storage().save_file(room_id, the_file)
     except InvalidFilename:
-        flash(messages.INVALID_FILENAME, "error")
+        return "error", messages.INVALID_FILENAME
     except FileTooLarge:
-        flash(messages.file_too_large(current_app.config["QUICKSHARE"].max_upload_mb), "warning")
+        return "warning", messages.file_too_large(current_app.config["QUICKSHARE"].max_upload_mb)
+    logger.info("上傳成功：%s/%s", room_id, stored_name)
+    return "success", messages.upload_success(storage.display_name(stored_name))
+
+
+@bp.post("/upload")
+def upload():
+    """前端 JS 每次只送一個檔案並取得 JSON；沒有 JS 時以一般表單送出，結果用 flash 顯示。"""
+    room_id = owner_room()
+    files = [f for f in request.files.getlist("the_file") if f.filename]
+    if not files:
+        results = [("warning", messages.NO_FILE_SELECTED)]
     else:
-        logger.info("上傳成功：%s/%s", room_id, stored_name)
-        flash(messages.upload_success(storage.display_name(stored_name)), "success")
+        results = [save_one(room_id, f) for f in files]
+
+    if wants_json():
+        category, message = results[0]
+        return jsonify(category=category, message=message)
+    for category, message in results:
+        flash(message, category)
     return redirect(url_for("main.index"))
 
 

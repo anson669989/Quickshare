@@ -11,8 +11,10 @@ from pathlib import Path
 
 logger = logging.getLogger("quickshare")
 
-# 房間 ID：32 碼小寫 hex（Windows 不分大小寫，所以只用小寫）
-ROOM_ID_RE = re.compile(r"^[0-9a-f]{32}$")
+# 房間 ID：10 碼小寫英數（約 52 bits）。Windows 不分大小寫，所以只用小寫
+ROOM_ID_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz"
+ROOM_ID_LENGTH = 10
+ROOM_ID_RE = re.compile(r"^[0-9a-z]{10}$")
 # 儲存檔名：<8 碼 uid>_<安全檔名>
 STORED_NAME_RE = re.compile(r"^[0-9a-f]{8}_[一-鿿A-Za-z0-9._-]+$")
 # 上傳中的暫存檔：<8 碼 uid>.part
@@ -41,7 +43,8 @@ class FileTooLarge(StorageError):
 
 
 def new_room_id():
-    return secrets.token_hex(16)
+    """用 secrets 逐字均勻挑選，產生 10 碼房間 ID。"""
+    return "".join(secrets.choice(ROOM_ID_ALPHABET) for _ in range(ROOM_ID_LENGTH))
 
 
 def is_valid_room_id(room_id):

@@ -13,6 +13,7 @@
   <main class="panel">
 
     <header class="title-row">
+      <img class="logo" src="{{ url_for('static', filename='icon/papericon.png') }}" alt="">
       {% if is_owner %}
         <h1 class="title">Quick Share</h1>
         <button type="button" class="icon-button js-open-dialog" data-dialog="dialog-info" aria-label="說明">
@@ -36,24 +37,22 @@
       <form class="upload-form js-upload-form" method="post" action="{{ url_for('main.upload') }}"
             enctype="multipart/form-data"
             data-max-bytes="{{ max_upload_bytes }}"
-            data-too-large-message="{{ too_large_message }}"
-            data-uploading-text="上傳中…">
+            data-skipped-message="{{ skipped_message }}"
+            data-failed-message="{{ msg.UPLOAD_FAILED }}"
+            data-progress-text="{{ msg.UPLOAD_PROGRESS }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <label class="upload-zone">
-          <input class="upload-input js-upload-input" type="file" name="the_file">
+        <label class="upload-zone js-upload-zone">
+          <input class="upload-input js-upload-input" type="file" name="the_file" multiple>
           <img class="upload-icon" src="{{ url_for('static', filename='icon/uploadicon.png') }}" alt="">
-          <span class="upload-text js-upload-text">選擇檔案上傳</span>
+          <span class="upload-text js-upload-text">點擊或拖曳檔案上傳</span>
         </label>
-        <p class="limits-notice">{{ limits_notice }}</p>
+        <noscript><button type="submit" class="text-button noscript-submit">上傳</button></noscript>
       </form>
 
-      <button type="button" class="share-row js-open-dialog" data-dialog="dialog-share">
-        <img class="icon" src="{{ url_for('static', filename='icon/papericon.png') }}" alt="">
-        <span>Share file</span>
-      </button>
+      <button type="button" class="share-button js-open-dialog" data-dialog="dialog-share">Share file</button>
     {% endif %}
 
-    <section class="file-list" aria-label="檔案清單">
+    <section class="file-list js-file-list" aria-label="檔案清單">
       {% for file in files %}
         <div class="file-item">
           <span class="file-name" title="{{ file.display_name }}">{{ file.display_name | shorten }}</span>
@@ -79,22 +78,33 @@
   </main>
 
   {% if is_owner %}
-    <dialog class="dialog dialog-info">
-      <div class="dialog-body">
-        <p class="dialog-text">{{ info_text }}</p>
-        <button type="button" class="text-button js-close-dialog">關閉</button>
-      </div>
+    {% macro close_button() %}
+      <button type="button" class="dialog-close js-close-dialog" aria-label="關閉">
+        <svg class="dialog-close-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M6 6 L18 18 M18 6 L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+        </svg>
+      </button>
+    {% endmacro %}
+
+    <dialog class="dialog dialog-info" aria-label="說明">
+      {{ close_button() }}
+      <ul class="info-list">
+        {% for line in info_lines %}
+          <li>{{ line }}</li>
+        {% endfor %}
+      </ul>
     </dialog>
 
-    <dialog class="dialog dialog-share">
+    <dialog class="dialog dialog-share" aria-label="分享連結">
+      {{ close_button() }}
       <div class="dialog-body">
         <img class="qrcode" src="{{ url_for('main.qrcode_image', room_id=room_id) }}" alt="分享連結的 QR code" width="200" height="200">
+        <input class="share-link-input js-share-link" type="text" value="{{ share_url }}" readonly aria-label="分享連結">
         <div class="copy-row">
-          <input class="share-link-input js-share-link" type="text" value="{{ share_url }}" readonly aria-label="分享連結">
-          <button type="button" class="text-button js-copy" data-copied-text="已複製">複製</button>
+          <button type="button" class="text-button js-copy"
+                  data-copied-text="{{ msg.COPY_DONE }}" data-manual-text="{{ msg.COPY_MANUAL }}">複製</button>
           <span class="copy-status js-copy-status" aria-live="polite"></span>
         </div>
-        <button type="button" class="text-button js-close-dialog">關閉</button>
       </div>
     </dialog>
   {% endif %}

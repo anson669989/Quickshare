@@ -65,7 +65,7 @@ def test_format_size():
 
 def test_invalid_room_id_raises(config):
     store = Storage(config)
-    for bad in ["..", "A" * 32, "a" * 31, "g" * 32, "..\\" + "a" * 29]:
+    for bad in ["..", "A" * 10, "a" * 9, "a" * 11, "aaaa_aaaaa", "0123456789abcdef0123456789abcdef", "..\\" + "a" * 7]:
         with pytest.raises(InvalidRoomId):
             store.list_files(bad)
 
@@ -98,12 +98,12 @@ def test_purge_expired_rooms(config):
     store = Storage(config)
     upload_dir = config.upload_dir
 
-    expired = make_room(upload_dir, "a" * 32)
+    expired = make_room(upload_dir, "a" * 10)
     set_age(expired / "0123abcd_a.txt", 31)
 
-    fresh = make_room(upload_dir, "b" * 32)
+    fresh = make_room(upload_dir, "b" * 10)
 
-    empty_expired = upload_dir / ("c" * 32)
+    empty_expired = upload_dir / ("c" * 10)
     empty_expired.mkdir()
     set_age(empty_expired, 31)
 
@@ -113,9 +113,13 @@ def test_purge_expired_rooms(config):
     set_age(other / "keep.txt", 365)
     set_age(other, 365)
 
-    upper = upload_dir / ("D" * 32)  # 大寫不符合房間 ID 格式
+    upper = upload_dir / ("D" * 10)  # 大寫不符合房間 ID 格式
     upper.mkdir()
     set_age(upper, 365)
+
+    old_format = upload_dir / ("e" * 32)  # 舊格式（32 碼）也不碰
+    old_format.mkdir()
+    set_age(old_format, 365)
 
     assert store.purge_expired_rooms() == 2
     assert not expired.exists()
@@ -123,6 +127,21 @@ def test_purge_expired_rooms(config):
     assert fresh.exists()
     assert (other / "keep.txt").exists()
     assert upper.exists()
+    assert old_format.exists()
+
+
+# ---------- 房間 ID ----------
+def test_new_room_id_format():
+    for _ in range(200):
+        room = storage.new_room_id()
+        assert len(room) == 10
+        assert storage.is_valid_room_id(room)
+
+
+def test_new_room_id_uses_whole_alphabet():
+    # 字元集是小寫英數（不只 hex），且每個字元都會出現
+    seen = set("".join(storage.new_room_id() for _ in range(2000)))
+    assert seen == set("0123456789abcdefghijklmnopqrstuvwxyz")
 
 
 def test_purge_without_upload_dir(config):

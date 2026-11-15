@@ -22,7 +22,7 @@ def secrets_outside(config, tmp_path):
     config.upload_dir.mkdir(parents=True, exist_ok=True)
     in_upload_dir = config.upload_dir / "secret.txt"
     in_upload_dir.write_text("TOP-SECRET")
-    other_room = config.upload_dir / ("f" * 32)
+    other_room = config.upload_dir / ("f" * 10)
     other_room.mkdir()
     other_file = other_room / "0123abcd_other.txt"
     other_file.write_text("TOP-SECRET")
@@ -30,12 +30,13 @@ def secrets_outside(config, tmp_path):
 
 
 BAD_ROOM_IDS = [
-    "..", "..%5C..", "..%2F..", "%2E%2E", "a" * 31, "a" * 33, "g" * 32, "A" * 32,
-    "..%5C" + "f" * 32, "a" * 30 + "..",
+    "..", "..%5C..", "..%2F..", "%2E%2E", "a" * 9, "a" * 11, "A" * 10, "aaaa_aaaaa", "aaaa-aaaaa",
+    "0123456789abcdef0123456789abcdef",  # 舊格式（32 碼 hex）
+    "..%5C" + "f" * 10, "a" * 8 + "..",
 ]
 BAD_FILENAMES = [
     "..", "..%5C..%5Csecret.txt", "..%2F..%2Fsecret.txt", "..%5Csecret.txt",
-    "%2E%2E%5Csecret.txt", "secret.txt", "..%5C" + "f" * 32 + "%5C0123abcd_other.txt",
+    "%2E%2E%5Csecret.txt", "secret.txt", "..%5C" + "f" * 10 + "%5C0123abcd_other.txt",
     "0123abcd_..", "0123abcd_..%5C..%5Csecret.txt", "ZZZZZZZZ_x.txt",
 ]
 
@@ -56,7 +57,7 @@ def test_bad_room_ids_are_rejected(client, secrets_outside, bad_room):
 def test_bad_filenames_are_rejected(client, secrets_outside, bad_name):
     token = csrf_token(client)
     room = room_of(client)
-    for target_room in [room, "f" * 32]:
+    for target_room in [room, "f" * 10]:
         response = client.get(f"/download/{target_room}/{bad_name}")
         assert response.status_code in (302, 404)
         assert b"TOP-SECRET" not in response.data
@@ -249,16 +250,137 @@ def test_index_does_not_create_folders(client, config):
 
 # ---------- 11. 分享頁 ----------
 def test_share_view_for_unknown_room(client):
-    response = client.get("/share_view/" + "e" * 32)
+    response = client.get("/share_view/" + "e" * 10)
     assert response.status_code == 200
     assert messages.SHARE_EMPTY in response.get_data(as_text=True)
 
 
-def test_owner_page_empty_message_and_limits(client):
+def test_owner_page_empty_message(client):
     html = client.get("/").get_data(as_text=True)
     assert messages.OWNER_EMPTY in html
-    assert messages.limits_notice(1, 3, 30) in html
     assert 'data-max-bytes="1048576"' in html
+
+
+# ---------- 第二輪：說明彈窗含限制、上傳區下方不再有公告 ----------
+def test_limits_are_in_info_dialog_only(client):
+    html = client.get("/").get_data(as_text=True)
+    main_part, dialogs = html.split("<dialog", 1)
+    info = dialogs.split("</dialog>", 1)[0]
+    assert 'dialog-info' in info
+    for line in messages.info_lines(1, 3, 30):
+        assert line in info
+    assert "1 MB" in info and "3 個檔案" in info and "30 天" in info
+    # 上傳區（主要內容）不再有限制公告
+    assert "limits-notice" not in html
+    assert "最多保留" not in main_part
+
+
+def test_dialogs_use_close_icon(client):
+    html = client.get("/").get_data(as_text=True)
+    assert html.count('class="dialog-close js-close-dialog" aria-label="關閉"') == 2
+    assert ">關閉<" not in html
+    assert "<svg" in html
+
+
+def test_logo_and_share_button(client):
+    html = client.get("/").get_data(as_text=True)
+    header = html.split("</header>", 1)[0]
+    assert header.index("papericon.png") < header.index("Quick Share</h1>")
+    share_button = html.split('data-dialog="dialog-share">', 1)[1].split("</button>", 1)[0]
+    assert share_button.strip() == "Share file"
+
+
+def test_upload_input_allows_multiple(client):
+    html = client.get("/").get_data(as_text=True)
+    assert 'name="the_file" multiple' in html
+
+
+# ---------- 第二輪：房間 ID 格式 ----------
+def test_room_id_is_10_chars(client):
+    room = room_of_new(client)
+    assert len(room) == 10
+    assert room.isalnum() and room == room.lower()
+
+
+def test_old_format_session_gets_new_room(client, config):
+    old_id = "0123456789abcdef0123456789abcdef"
+    with client.session_transaction() as sess:
+        sess["room_id"] = old_id
+    response = client.get("/")
+    assert response.status_code == 200
+    new_id = room_of(client)
+    assert new_id != old_id and len(new_id) == 10
+    # 換發新 ID 後可以正常上傳
+    upload(client, "after.txt")
+    assert (config.upload_dir / new_id).is_dir()
+
+
+def test_old_format_session_upload_directly(client, config):
+    # session 是舊格式時直接送上傳（例如舊頁面還開著），也不會 500 或 403
+    token = csrf_token(client)
+    with client.session_transaction() as sess:
+        sess["room_id"] = "f" * 32
+    response = client.post("/upload", data={"csrf_token": token, "the_file": (io.BytesIO(b"x"), "a.txt")},
+                           content_type="multipart/form-data")
+    assert response.status_code == 302
+    assert len(files_on_disk(config)) == 1
+
+
+# ---------- 第二輪：多檔上傳的後端行為 ----------
+def json_upload(client, name, content=b"hello", token=None):
+    token = csrf_token(client) if token is None else token
+    data = {"the_file": (io.BytesIO(content), name)}
+    if token:
+        data["csrf_token"] = token
+    return client.post("/upload", data=data, content_type="multipart/form-data",
+                       headers={"X-Requested-With": "fetch"})
+
+
+def test_json_upload_success_does_not_flash(client, config):
+    response = json_upload(client, "a b.txt")
+    assert response.status_code == 200
+    assert response.get_json() == {"category": "success", "message": messages.upload_success("a_b.txt")}
+    # 不留下 flash，之後開首頁不會重複出現訊息
+    assert messages.upload_success("a_b.txt") not in client.get("/").get_data(as_text=True)
+    assert len(files_on_disk(config)) == 1
+
+
+def test_json_upload_errors(client, config):
+    assert json_upload(client, "???").get_json() == {"category": "error", "message": messages.INVALID_FILENAME}
+    big = json_upload(client, "big.bin", b"x" * (1024 * 1024 + 10))
+    assert big.get_json() == {"category": "warning", "message": messages.file_too_large(1)}
+    too_big = json_upload(client, "huge.bin", b"x" * (3 * 1024 * 1024))
+    assert too_big.status_code == 413
+    assert too_big.get_json() == {"category": "warning", "message": messages.file_too_large(1)}
+    no_csrf = json_upload(client, "a.txt", token="")
+    assert no_csrf.status_code == 400
+    assert no_csrf.get_json() == {"category": "warning", "message": messages.PAGE_EXPIRED}
+    assert files_on_disk(config) == []
+    # JSON 模式的錯誤也不會留下 flash
+    assert 'class="flash flash-' not in client.get("/").get_data(as_text=True)
+
+
+def test_json_uploads_in_sequence_respect_quota(client, config):
+    token = csrf_token(client)
+    for i in range(5):
+        assert json_upload(client, f"m{i}.txt", token=token).get_json()["category"] == "success"
+    html = client.get("/").get_data(as_text=True)
+    assert [n for n in ["m0.txt", "m1.txt", "m2.txt", "m3.txt", "m4.txt"] if f'title="{n}"' in html] == \
+        ["m2.txt", "m3.txt", "m4.txt"]
+
+
+def test_form_upload_with_several_files_without_js(client, config):
+    token = csrf_token(client)
+    response = client.post(
+        "/upload",
+        data={"csrf_token": token, "the_file": [(io.BytesIO(b"1"), "one.txt"), (io.BytesIO(b"2"), "two.txt")]},
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+    html = response.get_data(as_text=True)
+    assert messages.upload_success("one.txt") in html
+    assert messages.upload_success("two.txt") in html
+    assert len(files_on_disk(config)) == 2
 
 
 # ---------- QR code、反向代理、cookie ----------
