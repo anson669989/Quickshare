@@ -290,6 +290,19 @@ def test_logo_and_share_button(client):
     assert share_button.strip() == "Share file"
 
 
+def test_flash_is_floating_toast(client):
+    # 第三輪：flash 以浮動提示呈現，保留 aria-live；沒有 JS 時退回面板內顯示
+    html = upload(client, "toast.txt", follow=True).get_data(as_text=True)
+    assert 'class="flash-list js-flash-list" aria-live="polite"' in html
+    assert f'data-close-hint="{messages.FLASH_CLOSE_HINT}"' in html
+    assert 'class="flash flash-success"' in html
+    css = client.get("/static/style.css").get_data(as_text=True)
+    flash_list_rule = css.split(".flash-list {", 1)[1].split("}", 1)[0]
+    assert "position: fixed" in flash_list_rule
+    assert "@media (prefers-reduced-motion: reduce)" in css
+    assert "@media (scripting: none)" in css
+
+
 def test_upload_input_allows_multiple(client):
     html = client.get("/").get_data(as_text=True)
     assert 'name="the_file" multiple' in html

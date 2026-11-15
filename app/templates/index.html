@@ -27,7 +27,7 @@
       {% endif %}
     </header>
 
-    <div class="flash-list js-flash-list" aria-live="polite">
+    <div class="flash-list js-flash-list" aria-live="polite" data-close-hint="{{ msg.FLASH_CLOSE_HINT }}">
       {% for category, message in get_flashed_messages(with_categories=true) %}
         <div class="flash flash-{{ category }}">{{ message }}</div>
       {% endfor %}

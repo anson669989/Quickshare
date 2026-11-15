@@ -16,6 +16,7 @@ UPLOAD_PROGRESS = "上傳中… {done}/{total}"
 UPLOAD_FAILED = "{name}：上傳失敗，請稍後再試"
 COPY_DONE = "已複製"
 COPY_MANUAL = "無法自動複製，連結已選取，請長按連結手動複製"
+FLASH_CLOSE_HINT = "點擊關閉"
 
 
 def upload_success(filename):

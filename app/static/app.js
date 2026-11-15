@@ -2,6 +2,7 @@
 "use strict";
 
 document.addEventListener("DOMContentLoaded", function () {
+  setupFlashes();
   setupUpload();
   setupDialogs();
   setupCopy();
@@ -234,16 +235,76 @@ function fill(template, values) {
   });
 }
 
-// 在訊息區顯示多則訊息（取代舊的訊息）
-function showFlashes(results) {
+// ---------- flash 訊息：浮動提示，一段時間後自動淡出，可點擊提早關閉 ----------
+const MAX_VISIBLE_FLASHES = 4; // 同時最多顯示幾則，其餘排隊，前面的消失後才出現
+const FLASH_FADE_MS = 450;     // 配合 CSS 的淡出時間（0.4 秒）
+const flashQueue = [];
+
+// 停留時間：成功 4 秒、警告與錯誤 8 秒；訊息較長時依字數延長（每字 0.12 秒），確保讀得完
+function flashDuration(item) {
+  const base = item.classList.contains("flash-success") ? 4000 : 8000;
+  return Math.max(base, 1500 + item.textContent.length * 120);
+}
+
+// 頁面載入時，把伺服器渲染出來的訊息也交給同一套機制處理
+function setupFlashes() {
   const list = document.querySelector(".js-flash-list");
   if (!list) {
     return;
   }
-  list.replaceChildren(...results.map(function (result) {
+  Array.from(list.querySelectorAll(".flash")).forEach(function (item) {
+    item.remove();
+    flashQueue.push(item);
+  });
+  showQueuedFlashes();
+}
+
+// 顯示多則新訊息（加在既有訊息之後）
+function showFlashes(results) {
+  results.forEach(function (result) {
     const item = document.createElement("div");
     item.className = "flash flash-" + result.category;
     item.textContent = result.message;
-    return item;
-  }));
+    flashQueue.push(item);
+  });
+  showQueuedFlashes();
+}
+
+function showQueuedFlashes() {
+  const list = document.querySelector(".js-flash-list");
+  if (!list) {
+    return;
+  }
+  while (flashQueue.length > 0 && list.querySelectorAll(".flash:not(.is-leaving)").length < MAX_VISIBLE_FLASHES) {
+    const item = flashQueue.shift();
+    list.appendChild(item);
+    startFlash(item, list.dataset.closeHint);
+  }
+}
+
+function startFlash(item, closeHint) {
+  item.classList.add("is-closable");
+  if (closeHint) {
+    item.title = closeHint;
+  }
+  const timer = setTimeout(function () {
+    dismissFlash(item);
+  }, flashDuration(item));
+
+  // 不做「滑鼠停留時暫停」：點掉一則後，下一則會補到游標底下而一直不消失
+  item.addEventListener("click", function () {
+    clearTimeout(timer);
+    dismissFlash(item);
+  });
+}
+
+function dismissFlash(item) {
+  if (item.classList.contains("is-leaving")) {
+    return;
+  }
+  item.classList.add("is-leaving");
+  setTimeout(function () {
+    item.remove();
+    showQueuedFlashes();
+  }, FLASH_FADE_MS);
 }
